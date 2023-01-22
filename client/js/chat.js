@@ -24,6 +24,7 @@ const login = () => {
       });
 }
 
+
 const sendMyMessage = (chatWidowId, fromUser, message) => {
     let loggedInUser = JSON.parse(sessionStorage.getItem('user'))
     let meClass = loggedInUser.user_id == fromUser.user_id ? 'me' : '';
@@ -31,7 +32,7 @@ const sendMyMessage = (chatWidowId, fromUser, message) => {
     $('#after-login').find(`#${chatWidowId} .body`).append(`
         <div class="chat-text ${meClass}">
             <div class="userPhoto">
-                <img src="" />
+            <img src="./img/jack.jpg" />
             </div>
             <div>
                 <span class="message">${message}<span>
@@ -41,6 +42,7 @@ const sendMyMessage = (chatWidowId, fromUser, message) => {
 }
 
 
+
 const sendMessage = (room) => {
     let loggedInUser = JSON.parse(sessionStorage.getItem('user'))
     let message = $('#'+room).find('.messageText').val();
@@ -48,7 +50,8 @@ const sendMessage = (room) => {
     $('#'+room).find('.messageText').val('');
     socket.emit('message', {room: room, message:message, from: loggedInUser});
   //  console.log(message)
-    sendMyMessage(room.toString().replace(".","_"), loggedInUser, message) 
+  socket.emit('usermessage', {room: room, message:message, from: loggedInUser});
+  sendMyMessage(room, loggedInUser, message)
 }
 const openChatWindow = (room) => {
     if($(`#${room}`).length === 0 ) {
@@ -67,9 +70,9 @@ const createRoom = (id) => {              ///// crea la sala mandando la informa
     let loggedInUser = JSON.parse(sessionStorage.getItem('user'))
     let room = Math.ceil(Math.random()*111);
     socket.emit('create', {room: room, userId:loggedInUser.user_id, withUserId:id});
-    socket.on('roomdb' , function (roomdb) {
+    socket.on('roomdb' , function (roomdb) {  
+         console.log(roomdb, 'soy roomdb')
         openChatWindow(roomdb.toString().replace(".","_"))
-        console.log(roomdb)
     })
     ; /// manddo a open chat window el room con la informacion 'random'
 }
@@ -91,9 +94,9 @@ socket.on('invite', function(data) {
 });
 socket.on('message', function(msg) {
     //If chat window not opened with this roomId, open it
-    console.log(msg, "llegue")
-    if(!$('#after-login').find(`#${msg.room.toString().replace(".","_")}`)) {
-        openChatWindow(msg.room.toString().replace(".","_"))
+    if(!$('#after-login').find(`#${msg.room}`).length) {
+        openChatWindow(msg.room)
     }
-    sendMyMessage(msg.room.toString().replace(".","_"), msg.from, msg.message)
+    console.log(msg)
+    sendMyMessage(msg.room, msg.from, msg.message)
 });

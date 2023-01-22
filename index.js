@@ -21,7 +21,7 @@ const io = new SocketServer(server, {
         origin: 'http://localhost:3000',
     }
 })
-
+///* busco al cliente por el id de socket */
 const getSocketByUserId = (userId) =>{
     let socket = '';
     for(let i = 0; i<clientSocketIds.length; i++) {
@@ -34,6 +34,25 @@ const getSocketByUserId = (userId) =>{
 }
 let clientSocketIds = [];
 let connectedUsers= [];
+
+
+/* funcion para buscar si un room ya fue creado */
+
+const searchRoom = (rooms) => {
+    
+    const Searching = rooms.reduce((acc, room) => {
+        acc[room.room_id_room] = ++acc[room.room_id_room] || 0;
+        return acc;
+      }, {});
+      
+      const duplicate = rooms.filter( (room) => {
+          return Searching[room.room_id_room];
+      });
+      
+      return duplicate ;
+}
+
+
 /* socket function starts */
 io.on ('connection', socket => {
     console.log('conected')
@@ -54,16 +73,21 @@ io.on ('connection', socket => {
 
 
     socket.on('create', async  function(data) {
-       // console.log(data)
-       // console.log("create room")
-    //const [allreadyCreate] = await pool.query("SELECT * FROM room_has_users")
-    //const usersRooms =  allreadyCreate.filter(item => item.users_id_user == data.withUserId  && item.users_id_user == data.userId  )
-  const [rooms] = await pool.query("SELECT * FROM room");
-    // console.log(rooms)
-    const Primarykey = rooms.filter( item => item.id_room == data.room)   //// me aseguro que el id no se repetia antes de crear el room --->
-   // console.log(Primarykey)
-    if (Primarykey.length == 1){ 
-      const Auxid = Math.random() * 1001000 ;
+     console.log(data)
+     console.log("create room")
+     const [allreadyCreate] = await pool.query("SELECT * FROM room_has_users")
+     console.log(allreadyCreate)
+     const usersRooms =  allreadyCreate.filter(item => item. users_user_id == data.withUserId  || item.users_user_id == data.userId  )
+     const [rooms] = await pool.query("SELECT * FROM room");
+     // console.log(rooms)
+     const Primarykey = rooms.filter( item => item.id_room == data.room) 
+
+     console.log(usersRooms ,'soy users room')
+     const roomSearch = searchRoom(usersRooms)
+     if( roomSearch.length > 1 ) {
+            data.room = roomSearch[0].room_id_room
+     } else if (Primarykey.length == 1){ 
+      const Auxid = Math.random() * 1001000 ;    //// me aseguro que el id no se repetia antes de crear el room ---
       await pool.query('INSERT INTO room (id_room) VALUES (?)', [Auxid]) 
       await pool.query('INSERT INTO room_has_users (room_id_room, users_user_id ) VALUES (?, ? )', [Auxid, data.withUserId])  
       await pool.query('INSERT INTO room_has_users (room_id_room, users_user_id ) VALUES (?, ? )', [Auxid, data.userId])  ///////         <---- 
@@ -88,10 +112,14 @@ io.on ('connection', socket => {
         socket.join(data.room.room.toString().replace(".","_"));
     });
 
-    socket.on('message', function(data) {
-        console.log(data, 'mensaje')
-        socket.broadcast.to(data.room).emit('message', data);
+    socket.on('message', async function(data) {
+    let id = Math.ceil(Math.random()*111);
+     await pool.query('INSERT INTO messages (id, id_user, id_room, message) VALUES (?,?,?,? )', [id, data.from.user_id, Number(data.room), data.message])
+    const [messages] = await pool.query('SELECT * FROM messages WHERE id_user = ? AND id_room = ?', [data.from.user_id, Number(data.room)])
+    console.log(messages, 'soy messages')   
+    socket.broadcast.to(data.room).emit('message',data);
     })
+
 });
 /* socket function ends */
 
