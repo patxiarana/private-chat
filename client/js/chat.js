@@ -1,3 +1,5 @@
+
+
 const login = () => {
     let username = $('#login_name').val();
     let password = $('#login_pass').val();
@@ -23,6 +25,35 @@ const login = () => {
         contentType: "application/json"
       });
 }
+
+/*alert ! */
+ socket.on('alert', function(users){
+        console.log(users, 'soy users')
+        let loggedInUser = JSON.parse(sessionStorage.getItem('user'))
+        if(loggedInUser.user_id == Number(users.id_guest)){
+      $(Swal.fire({
+            title: `invitation`,
+            text: `${users.namehost} wants to connect with you`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes!'
+          }).then((result) => {
+            if (result.isConfirmed) {
+            socket.emit('accepted', {user_guest:loggedInUser.user_id, user_host: users.id_host})
+              Swal.fire(
+                'Connected',
+                'now you can chat with him',
+                'success'
+              )
+            }
+          })).show()
+        } else {
+            console.log('alert')
+        } 
+    })
+
 
 
 const sendMyMessage = (chatWidowId, fromUser, message) => {
@@ -72,6 +103,10 @@ const sevedMessages = (messages) => {
 })
 }
 
+const invite = (guest) =>{
+      let host = JSON.parse(sessionStorage.getItem('user'))
+     socket.emit('invited', {id_host : host.user_id , id_guest :guest, namehost: host.user_name})
+}
 
 const openChatWindow = (room) => {
     if($(`#${room}`).length === 0 ) {
@@ -107,7 +142,9 @@ socket.on('updateUserList', function(userList) {     //// Muestro la lista de us
     $('#user-list').html('<ul></ul>');
     userList.forEach(item => {
         if(loggedInUser.user_id != item.user_id){
-            $('#user-list ul').append(`<li data-id="${item.user_id}" onclick="createRoom('${item.user_id}')">${item.user_name}</li>`)  
+            $('#user-list ul').append(`<li data-id="${item.user_id}" onclick="createRoom('${item.user_id}')">${item.user_name}</li>
+            <button onclick="invite('${item.user_id}')">invite</button>
+            `)  
         }
     });
 
@@ -125,3 +162,4 @@ socket.on('message', function(msg) {
     console.log(msg)
     sendMyMessage(msg.room, msg.from, msg.message)
 });
+

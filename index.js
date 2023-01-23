@@ -6,6 +6,7 @@ import cors from 'cors'
 import {dirname, join} from 'path'
 import { fileURLToPath } from 'url'
 import { pool } from "./src/db.js";
+import e from "express";
 
 
 const app = express()
@@ -59,9 +60,6 @@ io.on ('connection', socket => {
    // console.log(socket.id)
     socket.on('disconnect', () => {
         console.log("disconnected")
-       connectedUsers = connectedUsers.filter(item => item.socketId != socket.id);
-     //  console.log(connectedUsers)
-       io.emit('updateUserList', connectedUsers)
     });
 
     socket.on('loggedin', async function(user) {
@@ -73,16 +71,19 @@ io.on ('connection', socket => {
 
 
     socket.on('create', async  function(data) {
-     console.log(data)
+    let [accepted] = await pool.query('SELECT * FROM accepted WHERE user_id = ?',[data.withUserId]) 
+     let searchAccepted = accepted.filter( item => item.user_accepted_id == data.userId)
+     if(searchAccepted.length  > 0) {
+  //   console.log(data)
      console.log("create room")
      const [allreadyCreate] = await pool.query("SELECT * FROM room_has_users")
      console.log(allreadyCreate)
-     const usersRooms =  allreadyCreate.filter(item => item. users_user_id == data.withUserId  || item.users_user_id == data.userId  )
+     const usersRooms =  allreadyCreate.filter(item => item.users_user_id == data.withUserId  || item.users_user_id == data.userId  )
      const [rooms] = await pool.query("SELECT * FROM room");
      // console.log(rooms)
      const Primarykey = rooms.filter( item => item.id_room == data.room) 
 
-     console.log(usersRooms ,'soy users room')
+   //  console.log(usersRooms ,'soy users room')
      const roomSearch = searchRoom(usersRooms)
      if( roomSearch.length > 1 ) {
             data.room = roomSearch[0].room_id_room
@@ -102,7 +103,13 @@ io.on ('connection', socket => {
     let withSocket = getSocketByUserId(data.withUserId);
     socket.broadcast.to(withSocket.id).emit("invite",{room:data})
     //  console.log(data)
-    });
+    
+}else{
+    console.log('rejected')
+}
+
+
+});
 
 
 
@@ -123,12 +130,23 @@ io.on ('connection', socket => {
     });
 
     socket.on('message', async function(data) {
-     console.log(data) 
+    // console.log(data) 
     let id = Math.ceil(Math.random()*111);
      await pool.query('INSERT INTO messages (id, id_user, id_room, message) VALUES (?,?,?,? )', [id, data.from.user_id, Number(data.room), data.message])
   //  console.log(messages, 'soy messages')   
     socket.broadcast.to(data.room).emit('message',data);
     })
+
+  socket.on('invited', function(users){
+   // console.log(users)
+   let withSocket = getSocketByUserId(Number(users.id_guest));
+    socket.broadcast.to(withSocket.id).emit("alert",users)
+})
+
+socket.on('accepted', async function(user){
+   await pool.query('INSERT INTO accepted (user_id, user_accepted_id) VALUES (?, ?)', [user.user_guest,user.user_host])
+   await pool.query('INSERT INTO accepted (user_id, user_accepted_id) VALUES (?, ?)', [user.user_host,user.user_guest ])
+})
 
 });
 /* socket function ends */
