@@ -107,16 +107,26 @@ io.on ('connection', socket => {
 
 
 
+
+    socket.on('savedmessages' , async function (data){
+        const [messages] = await pool.query('SELECT * FROM messages WHERE id_user = ? AND id_room = ?', [data.userId, Number(data.room)])
+        const [messages2] = await pool.query('SELECT * FROM messages WHERE id_user = ? AND id_room = ?', [data.withUserId, Number(data.room)])
+      const savedmessages = messages.concat(messages2)
+      savedmessages.sort((a, b) => a.Date - b.Date )
+       socket.emit('messagessaved', savedmessages)
+    })
+
+
     socket.on('joinRoom', function(data) {
      //   console.log(data.room.room)
         socket.join(data.room.room.toString().replace(".","_"));
     });
 
     socket.on('message', async function(data) {
+     console.log(data) 
     let id = Math.ceil(Math.random()*111);
      await pool.query('INSERT INTO messages (id, id_user, id_room, message) VALUES (?,?,?,? )', [id, data.from.user_id, Number(data.room), data.message])
-    const [messages] = await pool.query('SELECT * FROM messages WHERE id_user = ? AND id_room = ?', [data.from.user_id, Number(data.room)])
-    console.log(messages, 'soy messages')   
+  //  console.log(messages, 'soy messages')   
     socket.broadcast.to(data.room).emit('message',data);
     })
 

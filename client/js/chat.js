@@ -53,6 +53,26 @@ const sendMessage = (room) => {
   socket.emit('usermessage', {room: room, message:message, from: loggedInUser});
   sendMyMessage(room, loggedInUser, message)
 }
+
+
+const sevedMessages = (messages) => {
+    let loggedInUser = JSON.parse(sessionStorage.getItem('user'))
+     messages.map( messages => {
+    let meClass = loggedInUser.user_id == messages.id_user? 'me' : '';
+   $('#after-login').find(`#${messages.id_room.toString().replace(".","_") } .body`).append(`
+        <div class="chat-text ${meClass}">
+            <div class="userPhoto">
+            <img src="./img/jack.jpg" />
+            </div>
+            <div>
+                <span class="message">${messages.message}<span>
+            </div>
+        </div>
+    `);
+})
+}
+
+
 const openChatWindow = (room) => {
     if($(`#${room}`).length === 0 ) {
         $('#after-login').append(`
@@ -70,8 +90,13 @@ const createRoom = (id) => {              ///// crea la sala mandando la informa
     let loggedInUser = JSON.parse(sessionStorage.getItem('user'))
     let room = Math.ceil(Math.random()*111);
     socket.emit('create', {room: room, userId:loggedInUser.user_id, withUserId:id});
+    socket.emit('savedmessages', {room: room, userId:loggedInUser.user_id, withUserId:id}); 
     socket.on('roomdb' , function (roomdb) {  
-         console.log(roomdb, 'soy roomdb')
+        socket.emit('savedmessages', {room: roomdb, userId:loggedInUser.user_id, withUserId:id}); 
+        socket.on('messagessaved', function(messages){
+            sevedMessages(messages)
+        })
+            
         openChatWindow(roomdb.toString().replace(".","_"))
     })
     ; /// manddo a open chat window el room con la informacion 'random'
